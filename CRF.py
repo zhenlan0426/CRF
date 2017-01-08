@@ -46,8 +46,7 @@ class CRF():
         # calculate p(Y|X), where Y ranges over both time and k classes
         # needed for SGD model training. Returned value have shape T,K
         P_y = alpha*beta*unaryFactor
-        Z = np.sum(P_y,1,keepdims=True) # normalizing factor
-        return P_y/Z, Z
+        return P_y/np.sum(P_y,1,keepdims=True)
     
     def infer_YY_X(self,X,alpha,beta,unaryFactor):
         # calculate p(Yt,Yt+1|X). Returned value will have shape T-1,K,K
@@ -55,8 +54,7 @@ class CRF():
         P_yy = np.einsum('ni,nj,ij->nij', unaryFactor[:n-1]*alpha[:n-1], \
                                           unaryFactor[1:]*beta[1:],\
                                           self.TMexp)
-        Z = np.sum(P_yy,(1,2),keepdims=True)
-        return P_yy/Z, Z
+        return P_yy/np.sum(P_yy,(1,2),keepdims=True)
         
     def _unaryGrad(y,P_y):
         # used to train x-y factor
@@ -101,12 +99,26 @@ class CRF():
                 self._unaryUpdate(x,self._unaryGrad(y,P_y),r,decay)
                 self._binaryUpdate(self._binaryGrad(freq,P_yy),r,decay)
                 
-            # monitor
             
+    def sample(self,X):
+        # sample from P(Y|X) = P(y1,y2|X) * P(y3|y2,X)...
+        # P(yt,yt+1|X) could be calculated via alpha-beta. 
+        T = X.shape[0]
+        y = np.zeros((T,self.k))
+        alpha,beta,unaryFactor = self.forwardBackward(X)
+        P_yy = self.infer_YY_X(X,alpha,beta,unaryFactor)
+        temp = np.random.choice(self.k**2, p=P_yy[0].flatten())
+        y[0,temp//self.k]=1; y[1,temp%self.k]=1 
+        for i in range(2,T):
+            p = P_yy[i-1][np.argmax(y[i-1])]
+            p = p/np.sum(p) # renormalize the conditional prob
+            y[i,np.random.choice(self.k,p=p)] = 1
+            
+        return y
         
-
-            
-            
+        
+        
+        
 ''' testing '''
 T = 20
 d = 10
@@ -116,8 +128,8 @@ X = np.random.randn(T,d)
         
 model1 = CRF(d,k)        
 alpha,beta,unaryFactor = model1.forwardBackward(X)        
-P_y, Z1 = model1.infer_Y_X(X,alpha,beta,unaryFactor)
-P_yy, Z2 = model1.infer_YY_X(X,alpha,beta,unaryFactor)        
+P_y= model1.infer_Y_X(X,alpha,beta,unaryFactor)
+P_yy= model1.infer_YY_X(X,alpha,beta,unaryFactor)        
         
         
         

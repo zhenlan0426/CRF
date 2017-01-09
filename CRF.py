@@ -56,7 +56,7 @@ class CRF():
                                           self.TMexp)
         return P_yy/np.sum(P_yy,(1,2),keepdims=True)
         
-    def _unaryGrad(y,P_y):
+    def _unaryGrad(self,y,P_y):
         # used to train x-y factor
         # y should have "wide" format of shape N,K
         return y - P_y
@@ -72,7 +72,7 @@ class CRF():
         self.W += r * grad_W / (self.W_sq + 1e-4)
         self.b += r * grad_b / (self.b_sq + 1e-4)
     
-    def _binaryGrad(freq, P_yy):
+    def _binaryGrad(self, freq, P_yy):
         # aggregated over T 
         return freq - np.sum(P_yy,0)
     
@@ -84,7 +84,7 @@ class CRF():
     def fit(self,X,Y,r,decay,iterNum):
         # X,Y should have shape (N,T,d), (N,T,k), where N is the # of sequence 
         # and T is the lenth of a sequence.
-        N,T,_ = X
+        N,T,_ = X.shape
         freq_YY = np.einsum('nti,ntj->nij',Y[:,:T-1,:],Y[:,1:,:]) # needed to calculate grad of binary factors
         for i in range(iterNum):
             index = np.random.permutation(N) 
@@ -118,24 +118,23 @@ class CRF():
         
         
         
-        
 ''' testing '''
-T = 20
+T = 50
+N = 100
 d = 10
-k = 3
-X = np.random.randn(T,d)
+k = 5
+X = np.random.randn(N,T,d)
+Y = np.zeros((N,T,k))
 
-        
+''' simulate data'''
 model1 = CRF(d,k)        
-alpha,beta,unaryFactor = model1.forwardBackward(X)        
-P_y= model1.infer_Y_X(X,alpha,beta,unaryFactor)
-P_yy= model1.infer_YY_X(X,alpha,beta,unaryFactor)        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+model1.b = np.random.randn(*model1.b.shape)/4
+
+for i in range(N):
+    Y[i]=model1.sample(X[i])
+    
+''' Fit model'''
+model_est = CRF(d,k)
+model_est.fit(X,Y,1e-3,0.95,100)
+
+print np.mean(np.abs(model1.W-model_est.W))

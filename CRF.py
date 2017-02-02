@@ -5,7 +5,22 @@ Created on Sat Jan  7 10:20:49 2017
 
 @author: will
 """
+def L(yhat,y):
+    return -np.mean(np.where(y,np.log(yhat),np.log(1-yhat)))
 
+def allComb(n):
+    if n==1:
+        return [[0],[1]]
+    else:
+        lstOflst = allComb(n-1)
+        return [[0]+lst for lst in lstOflst]+[[1]+lst for lst in lstOflst]
+    
+def decode(n,L_val,L_fun):
+    if n==0:
+decode(n,L(p,y), lambda yhat: L(yhat,y))
+DictMap={L(p,lst):lst for lst in allCombList}
+yhat = DictMap[L(p,y)]
+np.sum(yhat == y)
 import numpy as np
 
 class CRF():
